@@ -1,4 +1,4 @@
-//
+//Modified by: Derrick Alden
 //program: asteroids.cpp
 //author:  Gordon Griesel
 //date:    2014 - 2018
@@ -56,6 +56,14 @@ extern double timeDiff(struct timespec *start, struct timespec *end);
 extern void timeCopy(struct timespec *dest, struct timespec *source);
 //-----------------------------------------------------------------------------
 
+struct Shape {
+	float width, height;
+	float radius;
+	Vec center;
+
+};
+
+
 class Global {
 public:
 	int xres, yres;
@@ -66,6 +74,7 @@ public:
 		memset(keys, 0, 65536);
 	}
 } gl;
+
 
 class Ship {
 public:
@@ -117,6 +126,10 @@ public:
 
 class Game {
 public:
+
+    	Shape box[6];
+
+
 	Ship ship;
 	Asteroid *ahead;
 	Bullet *barr;
@@ -682,17 +695,18 @@ void physics()
 	}
 	//---------------------------------------------------
 	//check keys pressed now
-	if (gl.keys[XK_Left]) {
+	//movment with WSAD
+	if (gl.keys[XK_a]) {
 		g.ship.angle += 4.0;
 		if (g.ship.angle >= 360.0f)
 			g.ship.angle -= 360.0f;
 	}
-	if (gl.keys[XK_Right]) {
+	if (gl.keys[XK_d]) {
 		g.ship.angle -= 4.0;
 		if (g.ship.angle < 0.0f)
 			g.ship.angle += 360.0f;
 	}
-	if (gl.keys[XK_Up]) {
+	if (gl.keys[XK_w]) {
 		//apply thrust
 		//convert ship angle to radians
 		Flt rad = ((g.ship.angle+90.0) / 360.0f) * PI * 2.0;
@@ -703,8 +717,26 @@ void physics()
 		g.ship.vel[1] += ydir*0.02f;
 		Flt speed = sqrt(g.ship.vel[0]*g.ship.vel[0]+
 				g.ship.vel[1]*g.ship.vel[1]);
-		if (speed > 10.0f) {
-			speed = 10.0f;
+		if (speed > 5.0f) {
+			speed = 5.0f;
+			normalize2d(g.ship.vel);
+			g.ship.vel[0] *= speed;
+			g.ship.vel[1] *= speed;
+		}
+	}
+	if (gl.keys[XK_s]) {
+		//reverse thrust
+		//convert ship angle to radians
+		Flt rad = ((g.ship.angle+90.0) / 360.0f) * PI * 2.0;
+		//convert angle to a vector
+		Flt xdir =  -cos(rad);
+		Flt ydir =  -sin(rad);
+		g.ship.vel[0] += xdir*0.02f;
+		g.ship.vel[1] += ydir*0.02f;
+		Flt speed = sqrt(g.ship.vel[0]*g.ship.vel[0]+
+				g.ship.vel[1]*g.ship.vel[1]);
+		if (speed > 5.0f) {
+			speed = 5.0f;
 			normalize2d(g.ship.vel);
 			g.ship.vel[0] *= speed;
 			g.ship.vel[1] *= speed;
@@ -761,9 +793,31 @@ void render()
 	r.bot = gl.yres - 20;
 	r.left = 10;
 	r.center = 0;
-	ggprint8b(&r, 16, 0x00ff0000, "3350 - Asteroids");
-	ggprint8b(&r, 16, 0x00ffff00, "n bullets: %i", g.nbullets);
-	ggprint8b(&r, 16, 0x00ffff00, "n asteroids: %i", g.nasteroids);
+	ggprint8b(&r, 16, 0x00ff0000, "Asteromod");
+//	ggprint8b(&r, 16, 0x00ffff00, "n bullets: %i", g.nbullets);
+	ggprint8b(&r, 16, 0x00ffff00, "W: Thrust");
+	ggprint8b(&r, 16, 0x00ffff00, "S: Reverse");
+	ggprint8b(&r, 16, 0x00ffff00, "A: Left");
+	ggprint8b(&r, 16, 0x00ffff00, "D: Right");
+	ggprint8b(&r, 16, 0x00ffff00, "Space: Shoot");
+//	ggprint8b(&r, 16, 0x00ffff00, "n asteroids: %i", g.nasteroids);
+	//------------------------------------------------------------------------
+	//Draw Boxes
+	Rect newr;
+	newr.bot = 100-20;
+	newr.left = 10;
+	newr.center = 0;	
+
+	Shape *s;
+
+	for (int i = 0; i < 6; i++) {
+		//	g.box[i].width = 100;
+		//	g.box[i].height = 15;	
+		//	g.box[i].center.x = 120 + 5*65 - ( i * 30 );
+		//	g.box[i].center.y = 500 - 5*60 + ( i * 50 );
+
+	}
+
 	//-------------------------------------------------------------------------
 	//Draw the ship
 	glColor3fv(g.ship.color);
@@ -787,7 +841,8 @@ void render()
 	glVertex2f(0.0f, 0.0f);
 	glEnd();
 	glPopMatrix();
-	if (gl.keys[XK_Up] || g.mouseThrustOn) {
+	//show thrusters when moving
+	if (gl.keys[XK_w] || g.mouseThrustOn) {
 		int i;
 		//draw thrust
 		Flt rad = ((g.ship.angle+90.0) / 360.0f) * PI * 2.0;
@@ -808,8 +863,31 @@ void render()
 		}
 		glEnd();
 	}
+	if (gl.keys[XK_s] || g.mouseThrustOn) {
+		int i;
+		//draw thrust in reverse
+		Flt rad = ((g.ship.angle+90.0) / 360.0f) * PI * 2.0;
+		//convert angle to a vector
+		Flt xdir = -cos(rad);
+		Flt ydir = -sin(rad);
+		Flt xs,ys,xe,ye,r;
+		glBegin(GL_LINES);
+		for (i=0; i<16; i++) {
+			xs = -xdir * 11.0f + rnd() * 4.0 - 2.0;
+			ys = -ydir * 11.0f + rnd() * 4.0 - 2.0;
+			r = rnd()*40.0+40.0;
+			xe = -xdir * r + rnd() * 18.0 - 9.0;
+			ye = -ydir * r + rnd() * 18.0 - 9.0;
+			glColor3f(rnd()*.3+.7, rnd()*.3+.7, 0);
+			glVertex2f(g.ship.pos[0]+xs,g.ship.pos[1]+ys);
+			glVertex2f(g.ship.pos[0]+xe,g.ship.pos[1]+ye);
+		}
+		glEnd();
+	}
+
 	//-------------------------------------------------------------------------
 	//Draw the asteroids
+	/*
 	{
 		Asteroid *a = g.ahead;
 		while (a) {
@@ -836,6 +914,7 @@ void render()
 			a = a->next;
 		}
 	}
+	*/
 	//-------------------------------------------------------------------------
 	//Draw the bullets
 	for (int i=0; i<g.nbullets; i++) {
